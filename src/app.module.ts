@@ -6,6 +6,7 @@ import { ConfigModule } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
 import { AuthModule } from './app/module/auth/auth.module';
 import { ContactModule } from './app/module/contact/contact.module';
+import { CheckCarModule } from './app/module/check-car/check-car.module';
 
 
 import config from './app/config';
@@ -17,6 +18,7 @@ import config from './app/config';
     MongooseModule.forRoot(config.mongoUri as string),
     AuthModule,
     ContactModule,
+    CheckCarModule,
   ],
   controllers: [AppController],
   providers: [AppService],
