@@ -40,10 +40,8 @@ export default {
     baseUrl:
       process.env.DVLA_BASE_URL ||
       'https://driver-vehicle-licensing.api.gov.uk/vehicle-enquiry/v1/vehicles',
-    freeDevialKey:
-      process.env.DVLA_FREE_API_KEY || process.env.FREE_DEVIAL_KEY,
-    paidDevialKey:
-      process.env.DVLA_PAID_API_KEY || process.env.PAID_DEVIAL_KEY,
+    freeDevialKey: process.env.DVLA_FREE_API_KEY || process.env.FREE_DEVIAL_KEY,
+    paidDevialKey: process.env.DVLA_PAID_API_KEY || process.env.PAID_DEVIAL_KEY,
     defaultKeyType: process.env.DVLA_KEY_TYPE || 'free',
   },
   frontendUrl: process.env.FRONTEND_URL,
