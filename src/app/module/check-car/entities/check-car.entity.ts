@@ -19,7 +19,7 @@ class MotInfo {
 class HeroSection {
   @Prop() registrationNumber?: string;
   @Prop() vehicleName?: string;
-  @Prop() subtitle?: string;
+  //   @Prop() subtitle?: string;
 
   @Prop({ type: TaxInfo })
   tax?: TaxInfo;

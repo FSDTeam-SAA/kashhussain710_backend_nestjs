@@ -23,6 +23,7 @@ export interface VehicleResponse {
   markedForExport: boolean;
   dateOfLastV5CIssued: string;
   euroStatus?: string;
+  wheelplan?: string;
 }
 
 const DVLA_URL = config.devla.baseUrl;
