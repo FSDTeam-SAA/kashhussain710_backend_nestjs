@@ -14,29 +14,45 @@ import AuthGuard from 'src/app/middlewares/auth.guard';
 import type { Request } from 'express';
 
 @ApiTags('check-car')
+@ApiBearerAuth('access-token')
+@UseGuards(AuthGuard('user'))
 @Controller('check-car')
 export class CheckCarController {
   constructor(private readonly checkCarService: CheckCarService) {}
 
-  @Post()
-  @ApiOperation({
-    summary: 'check car is create',
-  })
-  @ApiBearerAuth('access-token')
-  @UseGuards(AuthGuard('user'))
+  // POST /check-car/free
+  @Post('free')
+  @ApiOperation({ summary: 'Free DVLA car check' })
   @HttpCode(HttpStatus.OK)
-  async createCheckCar(
-    @Req() req: Request,
-    @Body() createCheckNumber: CheckCarRouteDto,
-  ) {
-    const result = await this.checkCarService.createCheckCar(
+  async freeCheck(@Req() req: Request, @Body() body: CheckCarRouteDto) {
+    const result = await this.checkCarService.freeCheckCar(
       req.user!.id,
-      createCheckNumber.registrationNumber,
+      body.registrationNumber,
     );
+    return { message: 'Free car check successful', data: result };
+  }
 
-    return {
-      message: 'create check car successfully',
-      data: result,
-    };
+  // POST /check-car/paid
+  @Post('paid')
+  @ApiOperation({ summary: 'Paid DVLA car check (more detailed)' })
+  @HttpCode(HttpStatus.OK)
+  async paidCheck(@Req() req: Request, @Body() body: CheckCarRouteDto) {
+    const result = await this.checkCarService.paidCheckCar(
+      req.user!.id,
+      body.registrationNumber,
+    );
+    return { message: 'Paid car check successful', data: result };
+  }
+
+  // POST /check-car/mot-history
+  @Post('mot-history')
+  @ApiOperation({ summary: 'Full MOT history check (DVSA)' })
+  @HttpCode(HttpStatus.OK)
+  async motHistory(@Req() req: Request, @Body() body: CheckCarRouteDto) {
+    const result = await this.checkCarService.motHistoryCheck(
+      req.user!.id,
+      body.registrationNumber,
+    );
+    return { message: 'MOT history fetched successfully', data: result };
   }
 }

@@ -44,5 +44,13 @@ export default {
     paidDevialKey: process.env.DVLA_PAID_API_KEY || process.env.PAID_DEVIAL_KEY,
     defaultKeyType: process.env.DVLA_KEY_TYPE || 'free',
   },
+  mot: {
+    clientId: process.env.MOT_CLIENT_ID,
+    clientSecret: process.env.MOT_CLIENT_SECRET,
+    apiKey: process.env.MOT_API_KEY,
+    scopeUrl: process.env.MOT_SCOPE_URL,
+    tokenUrl: process.env.MOT_TOKEN_URL,
+    apiBase: process.env.MOT_API_BASE,
+  },
   frontendUrl: process.env.FRONTEND_URL,
 };
