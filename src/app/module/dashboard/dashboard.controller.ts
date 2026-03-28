@@ -1,8 +1,8 @@
 import {
   Controller,
+  Get,
   HttpCode,
   HttpStatus,
-  Post,
   UseGuards,
 } from '@nestjs/common';
 import { DashboardService } from './dashboard.service';
@@ -13,7 +13,7 @@ import AuthGuard from 'src/app/middlewares/auth.guard';
 export class DashboardController {
   constructor(private readonly dashboardService: DashboardService) {}
 
-  @Post('overview')
+  @Get('overview')
   @ApiOperation({
     summary: 'Get dashboard overview data',
   })
