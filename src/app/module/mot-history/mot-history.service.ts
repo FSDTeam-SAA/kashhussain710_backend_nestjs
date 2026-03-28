@@ -1,26 +1,51 @@
-import { Injectable } from '@nestjs/common';
-import { CreateMotHistoryDto } from './dto/create-mot-history.dto';
-import { UpdateMotHistoryDto } from './dto/update-mot-history.dto';
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { InjectModel } from '@nestjs/mongoose';
+import { Model } from 'mongoose';
+import { MotHistory, MotHistoryDocument } from './entities/mot-history.entity';
 
 @Injectable()
 export class MotHistoryService {
-  create(createMotHistoryDto: CreateMotHistoryDto) {
-    return 'This action adds a new motHistory';
+  constructor(
+    @InjectModel(MotHistory.name)
+    private readonly motHistoryModel: Model<MotHistoryDocument>,
+  ) {}
+
+  // একটি registration এর সব MOT history
+  async findByRegistration(registrationNumber: string) {
+    const vrn = registrationNumber.replace(/\s/g, '').toUpperCase();
+    const data = await this.motHistoryModel
+      .findOne({ registrationNumber: vrn })
+      .sort({ createdAt: -1 });
+
+    if (!data) throw new NotFoundException(`No MOT history found for ${vrn}`);
+
+    return data;
   }
 
-  findAll() {
-    return `This action returns all motHistory`;
+  // একজন user এর সব MOT history
+  async findByUser(userId: string) {
+    return this.motHistoryModel.find({ user: userId }).sort({ createdAt: -1 });
   }
 
-  findOne(id: number) {
-    return `This action returns a #${id} motHistory`;
+  // একটি CheckCar এর MOT history
+  async findByCheckCar(checkCarId: string) {
+    const data = await this.motHistoryModel.findOne({ checkCar: checkCarId });
+    if (!data)
+      throw new NotFoundException('No MOT history found for this vehicle');
+    return data;
   }
 
-  update(id: number, updateMotHistoryDto: UpdateMotHistoryDto) {
-    return `This action updates a #${id} motHistory`;
+  // Single record by ID
+  async findById(id: string) {
+    const data = await this.motHistoryModel.findById(id);
+    if (!data) throw new NotFoundException('MOT history not found');
+    return data;
   }
 
-  remove(id: number) {
-    return `This action removes a #${id} motHistory`;
+  // Delete by ID
+  async remove(id: string) {
+    const data = await this.motHistoryModel.findByIdAndDelete(id);
+    if (!data) throw new NotFoundException('MOT history not found');
+    return { message: 'MOT history deleted successfully' };
   }
 }
