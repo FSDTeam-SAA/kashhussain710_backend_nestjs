@@ -21,6 +21,7 @@ import {
 } from 'src/app/helpers/checkCarDetailsAPI';
 import {
   freeDVLACarCheck,
+  paidDVLACarCheck,
 } from 'src/app/helpers/davlaAPI';
 import paginationHelper, { IOptions } from 'src/app/helpers/pagenation';
 import config from 'src/app/config';
@@ -126,14 +127,26 @@ export class CarTaxService {
     // ──────────────────────────────────────────────────────────────
     // STEP 4: DVLA enrichment (always — fills tax/MOT status gaps)
     // ──────────────────────────────────────────────────────────────
-    console.log('[CarTax] Step 4: Fetching DVLA data');
+    console.log(`[CarTax] Step 4: Fetching DVLA data (subscribed=${subscribed})`);
     let dvlaData: any = null;
     try {
-      // Always use free DVLA key (paid key has auth issues)
-      dvlaData = await freeDVLACarCheck(cleanVrm);
+      // Use paid DVLA key for subscribed users, free key for others
+      dvlaData = subscribed
+        ? await paidDVLACarCheck(cleanVrm)
+        : await freeDVLACarCheck(cleanVrm);
       console.log('[CarTax] DVLA data received:', Object.keys(dvlaData ?? {}));
     } catch (err) {
       console.error('[CarTax] DVLA call failed:', err);
+      // Fallback to free key if paid key fails
+      if (subscribed) {
+        console.log('[CarTax] Paid DVLA failed, falling back to free key...');
+        try {
+          dvlaData = await freeDVLACarCheck(cleanVrm);
+          console.log('[CarTax] DVLA free fallback succeeded');
+        } catch (fallbackErr) {
+          console.error('[CarTax] DVLA free fallback also failed:', fallbackErr);
+        }
+      }
     }
 
     // Enrich parsed data with DVLA fields

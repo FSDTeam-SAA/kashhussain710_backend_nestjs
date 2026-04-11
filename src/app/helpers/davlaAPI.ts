@@ -49,24 +49,31 @@ async function callDvla(
 
   if (!response.ok) {
     let errorMessage = `DVLA request failed: ${response.status}`;
+    let rawBody = '';
     try {
-      const text = await response.text();
-      if (text) {
+      rawBody = await response.text();
+      if (rawBody) {
         try {
-          const err = JSON.parse(text);
-          errorMessage = err?.errors?.[0]?.detail ?? errorMessage;
+          const err = JSON.parse(rawBody);
+          errorMessage = err?.errors?.[0]?.detail ?? err?.message ?? errorMessage;
         } catch {
-          errorMessage = text;
+          errorMessage = rawBody.substring(0, 300);
         }
       }
     } catch {
       // ignore read error, use default message
     }
 
+    // Log full details for debugging
+    const keyPreview = apiKey ? `${apiKey.substring(0, 6)}...${apiKey.substring(apiKey.length - 4)}` : 'MISSING';
+    console.error(`[DVLA] FAILED — Status: ${response.status}, Key: ${keyPreview}, VRM: ${vrn}`);
+    console.error(`[DVLA] Response body: ${rawBody.substring(0, 500)}`);
+    console.error(`[DVLA] Key length: ${apiKey?.length}, Key has \\r: ${apiKey?.includes('\r')}, Key has spaces: ${apiKey?.includes(' ')}`);
+
     if (response.status === 400) throw new BadRequestException(errorMessage);
     if (response.status === 404) throw new NotFoundException(errorMessage);
     if (response.status === 401 || response.status === 403)
-      throw new BadGatewayException('DVLA API authentication failed');
+      throw new BadGatewayException(`DVLA API authentication failed (${response.status}): ${errorMessage}`);
 
     throw new BadGatewayException(errorMessage);
   }
