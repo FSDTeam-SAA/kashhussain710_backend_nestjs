@@ -30,15 +30,17 @@ export interface VehicleResponse {
 async function callDvla(
   registrationNumber: string,
   apiKey: string,
+  keyType: 'free' | 'paid',
 ): Promise<VehicleResponse> {
   const vrn = registrationNumber.replace(/\s/g, '').toUpperCase();
+  const normalizedApiKey = apiKey.trim();
 
   let response: Response;
   try {
     response = await fetch(config.devla.baseUrl, {
       method: 'POST',
       headers: {
-        'x-api-key': apiKey,
+        'x-api-key': normalizedApiKey,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({ registrationNumber: vrn }),
@@ -65,15 +67,23 @@ async function callDvla(
     }
 
     // Log full details for debugging
-    const keyPreview = apiKey ? `${apiKey.substring(0, 6)}...${apiKey.substring(apiKey.length - 4)}` : 'MISSING';
-    console.error(`[DVLA] FAILED — Status: ${response.status}, Key: ${keyPreview}, VRM: ${vrn}`);
+    const keyPreview = normalizedApiKey
+      ? `${normalizedApiKey.substring(0, 6)}...${normalizedApiKey.substring(normalizedApiKey.length - 4)}`
+      : 'MISSING';
+    console.error(
+      `[DVLA] FAILED — Type: ${keyType}, Status: ${response.status}, Key: ${keyPreview}, VRM: ${vrn}`,
+    );
     console.error(`[DVLA] Response body: ${rawBody.substring(0, 500)}`);
-    console.error(`[DVLA] Key length: ${apiKey?.length}, Key has \\r: ${apiKey?.includes('\r')}, Key has spaces: ${apiKey?.includes(' ')}`);
+    console.error(
+      `[DVLA] Key length: ${normalizedApiKey?.length}, Original length: ${apiKey?.length}, Key has \\r: ${apiKey?.includes('\r')}, Key has spaces: ${apiKey?.includes(' ')}`,
+    );
 
     if (response.status === 400) throw new BadRequestException(errorMessage);
     if (response.status === 404) throw new NotFoundException(errorMessage);
     if (response.status === 401 || response.status === 403)
-      throw new BadGatewayException(`DVLA API authentication failed (${response.status}): ${errorMessage}`);
+      throw new BadGatewayException(
+        `DVLA ${keyType} API authentication failed (${response.status}): ${errorMessage}`,
+      );
 
     throw new BadGatewayException(errorMessage);
   }
@@ -88,7 +98,7 @@ export async function freeDVLACarCheck(
   const apiKey = config.devla.freeDevialKey;
   if (!apiKey)
     throw new InternalServerErrorException('FREE DVLA API key missing');
-  return callDvla(registrationNumber, apiKey);
+  return callDvla(registrationNumber, apiKey, 'free');
 }
 
 // ─── PAID DVLA ───────────────────────────────────────────────────────
@@ -98,7 +108,7 @@ export async function paidDVLACarCheck(
   const apiKey = config.devla.paidDevialKey;
   if (!apiKey)
     throw new InternalServerErrorException('PAID DVLA API key missing');
-  return callDvla(registrationNumber, apiKey);
+  return callDvla(registrationNumber, apiKey, 'paid');
 }
 
 // ─── backward compat (পুরনো import ভাঙবে না) ────────────────────────
