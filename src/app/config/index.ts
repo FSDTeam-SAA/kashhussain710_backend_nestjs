@@ -53,7 +53,10 @@ export default {
     provider: carTaxProvider,
     apiKey: process.env.CARTAX_API_KEY,
     ukvdApiKey: process.env.UKVD_API_KEY,
-    apiHost: carTaxProvider === 'rapidapi' ? 'uk-vehicle-data1.p.rapidapi.com' : 'uk1.ukvehicledata.co.uk',
+    apiHost:
+      carTaxProvider === 'rapidapi'
+        ? 'uk-vehicle-data1.p.rapidapi.com'
+        : 'uk1.ukvehicledata.co.uk',
     apiUrl:
       carTaxProvider === 'rapidapi'
         ? 'https://uk-vehicle-data1.p.rapidapi.com/cartax.api.v1.Public/GetInitialReport'
@@ -73,6 +76,6 @@ export default {
   checkCarDetails: {
     testApiKey: process.env.CCD_TEST_API_KEY,
     liveApiKey: process.env.CCD_LIVE_API_KEY,
+    frontendUrl: process.env.FRONTEND_URL,
   },
-  frontendUrl: process.env.FRONTEND_URL,
 };

@@ -1,3 +1,112 @@
+// import {
+//   Body,
+//   Controller,
+//   Delete,
+//   Get,
+//   HttpCode,
+//   HttpStatus,
+//   Param,
+//   Post,
+//   Req,
+//   UseGuards,
+// } from '@nestjs/common';
+// import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+// import { CheckCarService } from './check-car.service';
+// import { CheckCarRouteDto } from './dto/check-car-route.dto';
+// import AuthGuard from 'src/app/middlewares/auth.guard';
+// import type { Request } from 'express';
+// import pick from 'src/app/helpers/pick';
+
+// @ApiTags('check-car')
+// @ApiBearerAuth('access-token')
+// @UseGuards(AuthGuard('user'))
+// @Controller('check-car')
+// export class CheckCarController {
+//   constructor(private readonly checkCarService: CheckCarService) {}
+
+//   // POST /check-car/check  ← MAIN endpoint (auto free/paid based on subscription)
+//   @Post('check')
+//   @ApiOperation({
+//     summary: 'Smart DVLA car check — auto-selects paid/free key based on subscription',
+//   })
+//   @HttpCode(HttpStatus.OK)
+//   async smartCheck(@Req() req: Request, @Body() body: CheckCarRouteDto) {
+//     const data = await this.checkCarService.smartCheck(
+//       req.user!.id,
+//       body.registrationNumber,
+//     );
+//     return { message: 'Car check successful', data };
+//   }
+
+//   // POST /check-car/free
+//   @Post('free')
+//   @ApiOperation({ summary: 'Free DVLA car check' })
+//   @HttpCode(HttpStatus.OK)
+//   async freeDVLACheck(@Req() req: Request, @Body() body: CheckCarRouteDto) {
+//     const data = await this.checkCarService.freeDVLACheck(
+//       req.user!.id,
+//       body.registrationNumber,
+//     );
+//     return { message: 'Free DVLA check successful', data };
+//   }
+
+//   // POST /check-car/paid
+//   @Post('paid')
+//   @ApiOperation({ summary: 'Paid DVLA car check' })
+//   @HttpCode(HttpStatus.OK)
+//   async paidDVLACheck(@Req() req: Request, @Body() body: CheckCarRouteDto) {
+//     const data = await this.checkCarService.paidDVLACheck(
+//       req.user!.id,
+//       body.registrationNumber,
+//     );
+//     return { message: 'Paid DVLA check successful', data };
+//   }
+
+//   // POST /check-car/mot-history  ← also subscription-aware now
+//   @Post('mot-history')
+//   @ApiOperation({ summary: 'Full MOT history (DVSA + DVLA) — subscription-aware' })
+//   @HttpCode(HttpStatus.OK)
+//   async motHistory(@Req() req: Request, @Body() body: CheckCarRouteDto) {
+//     const data = await this.checkCarService.smartMotHistoryCheck(
+//       req.user!.id,
+//       body.registrationNumber,
+//     );
+//     return { message: 'MOT history fetched successfully', data };
+//   }
+
+//   @Get('my-checkcar')
+//   @ApiOperation({ summary: 'My car checkr fetched successfully' })
+//   @ApiBearerAuth('access-token')
+//   @UseGuards(AuthGuard('user'))
+//   @HttpCode(HttpStatus.OK)
+//   async checkMyCar(@Req() req: Request) {
+//     const options = pick(req.query, [
+//       'limit',
+//       'page',
+//       'skip',
+//       'sortBy',
+//       'sortOrder',
+//     ]);
+//     const result = await this.checkCarService.checkMyCar(req.user!.id, options);
+//     return { message: 'Your Car Checks', meta: result.meta, data: result.data };
+//   }
+
+//   @Get('single/:id')
+//   @ApiOperation({ summary: 'Car checker fetched successfully' })
+//   @HttpCode(HttpStatus.OK)
+//   async checkMyCarById(@Param('id') id: string) {
+//     const data = await this.checkCarService.getSingleCheckCar(id);
+//     return { message: 'Your Car Check', data };
+//   }
+
+//   @Delete('single/:id')
+//   @ApiOperation({ summary: 'Car checker delete successfully' })
+//   @HttpCode(HttpStatus.OK)
+//   async deleteCarCheck(@Param('id') id: string) {
+//     const data = await this.checkCarService.deleteCarCheck(id);
+//     return { message: 'Car checker delete successfully', data };
+//   }
+// }
 import {
   Body,
   Controller,
@@ -27,7 +136,8 @@ export class CheckCarController {
   // POST /check-car/check  ← MAIN endpoint (auto free/paid based on subscription)
   @Post('check')
   @ApiOperation({
-    summary: 'Smart DVLA car check — auto-selects paid/free key based on subscription',
+    summary:
+      'Smart DVLA car check — auto-selects paid/free key based on subscription',
   })
   @HttpCode(HttpStatus.OK)
   async smartCheck(@Req() req: Request, @Body() body: CheckCarRouteDto) {
@@ -64,7 +174,9 @@ export class CheckCarController {
 
   // POST /check-car/mot-history  ← also subscription-aware now
   @Post('mot-history')
-  @ApiOperation({ summary: 'Full MOT history (DVSA + DVLA) — subscription-aware' })
+  @ApiOperation({
+    summary: 'Full MOT history (DVSA + DVLA) — subscription-aware',
+  })
   @HttpCode(HttpStatus.OK)
   async motHistory(@Req() req: Request, @Body() body: CheckCarRouteDto) {
     const data = await this.checkCarService.smartMotHistoryCheck(
@@ -72,6 +184,41 @@ export class CheckCarController {
       body.registrationNumber,
     );
     return { message: 'MOT history fetched successfully', data };
+  }
+
+  // POST /check-car/full-report
+  // ─── Subscribed user  → paid key → full data (history, valuation, specs, MOT)
+  // ─── Non-subscribed   → test key → basic registration data only
+  @Post('full-report')
+  @ApiOperation({
+    summary:
+      'Full vehicle report via CheckCarDetails API — subscribed users get paid key (complete data), free users get test key (basic data)',
+  })
+  @HttpCode(HttpStatus.OK)
+  async ccdFullCheck(@Req() req: Request, @Body() body: CheckCarRouteDto) {
+    const result = await this.checkCarService.ccdFullCheck(
+      req.user!.id,
+      body.registrationNumber,
+    );
+    return {
+      message: result.isSubscribed
+        ? 'Full vehicle report (paid — all data available)'
+        : 'Basic vehicle report (subscribe to unlock full data)',
+      keyType: result.keyType,
+      isSubscribed: result.isSubscribed,
+      data: result.data,
+      recordId: result.recordId,
+    };
+  }
+
+  // GET /check-car/debug-raw?vrm=EA65AMX  ← DEV ONLY, remove in production
+  @Get('debug-raw')
+  @ApiOperation({ summary: '[DEV] Raw CCD API response for debugging' })
+  @HttpCode(HttpStatus.OK)
+  async debugRaw(@Req() req: Request) {
+    const vrm = String(req.query.vrm || 'EA65AMX');
+    const raw = await this.checkCarService.ccdRawDebug(vrm);
+    return { vrm, raw };
   }
 
   @Get('my-checkcar')
