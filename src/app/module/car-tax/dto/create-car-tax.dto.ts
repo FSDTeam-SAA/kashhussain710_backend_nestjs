@@ -3,7 +3,7 @@ import { IsNotEmpty, IsString, Matches } from 'class-validator';
 
 export class CarTaxDto {
   @ApiProperty({
-    example: 'K5HHV',
+    example: 'K50HMA',
     description: 'UK Vehicle Registration Mark (number plate)',
   })
   @IsString()
