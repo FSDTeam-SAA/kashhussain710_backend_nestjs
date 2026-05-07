@@ -19,10 +19,8 @@ import {
   fetchAllCcdData,
   parseCcdResponse,
 } from 'src/app/helpers/checkCarDetailsAPI';
-import {
-  freeDVLACarCheck,
-  paidDVLACarCheck,
-} from 'src/app/helpers/davlaAPI';
+import { freeDVLACarCheck, paidDVLACarCheck } from 'src/app/helpers/davlaAPI';
+import { fetchCarapiPerformance } from 'src/app/helpers/carapiPerformance';
 import paginationHelper, { IOptions } from 'src/app/helpers/pagenation';
 import config from 'src/app/config';
 
@@ -70,19 +68,34 @@ export class CarTaxService {
       const ccdParsed = parseCcdResponse(ccdData);
 
       // Log what we got
-      console.log('[CarTax] CCD parsed — performance:', JSON.stringify(ccdParsed?.performance));
-      console.log('[CarTax] CCD parsed — fuelEconomy:', JSON.stringify(ccdParsed?.fuelEconomy));
-      console.log('[CarTax] CCD parsed — dimensions:', JSON.stringify(ccdParsed?.dimensions));
-      console.log('[CarTax] CCD parsed — vehicleDetails:', JSON.stringify(ccdParsed?.vehicleDetails));
+      console.log(
+        '[CarTax] CCD parsed — performance:',
+        JSON.stringify(ccdParsed?.performance),
+      );
+      console.log(
+        '[CarTax] CCD parsed — fuelEconomy:',
+        JSON.stringify(ccdParsed?.fuelEconomy),
+      );
+      console.log(
+        '[CarTax] CCD parsed — dimensions:',
+        JSON.stringify(ccdParsed?.dimensions),
+      );
+      console.log(
+        '[CarTax] CCD parsed — vehicleDetails:',
+        JSON.stringify(ccdParsed?.vehicleDetails),
+      );
 
       // Check if CCD returned meaningful data
-      const hasData = ccdParsed?.vehicleDetails?.make || ccdParsed?.status?.taxStatus;
+      const hasData =
+        ccdParsed?.vehicleDetails?.make || ccdParsed?.status?.taxStatus;
       if (hasData) {
         parsed = ccdParsed;
         rawResponse = ccdData;
         console.log('[CarTax] CheckCarDetails data loaded successfully!');
       } else {
-        console.log('[CarTax] CheckCarDetails returned empty — falling back to RapidAPI');
+        console.log(
+          '[CarTax] CheckCarDetails returned empty — falling back to RapidAPI',
+        );
       }
     } catch (err) {
       console.error('[CarTax] CheckCarDetails error:', err);
@@ -113,9 +126,18 @@ export class CarTaxService {
         const ukvdParsed = parseUkvdResponse(ukvdRaw);
         if (ukvdParsed) {
           parsed = mergeReports(parsed, ukvdParsed);
-          console.log('[CarTax] UKVD data merged — performance:', JSON.stringify(ukvdParsed?.performance));
-          console.log('[CarTax] UKVD fuel:', JSON.stringify(ukvdParsed?.fuelEconomy));
-          console.log('[CarTax] UKVD dimensions:', JSON.stringify(ukvdParsed?.dimensions));
+          console.log(
+            '[CarTax] UKVD data merged — performance:',
+            JSON.stringify(ukvdParsed?.performance),
+          );
+          console.log(
+            '[CarTax] UKVD fuel:',
+            JSON.stringify(ukvdParsed?.fuelEconomy),
+          );
+          console.log(
+            '[CarTax] UKVD dimensions:',
+            JSON.stringify(ukvdParsed?.dimensions),
+          );
         }
       } else {
         console.log('[CarTax] UKVD returned no DataItems');
@@ -127,7 +149,9 @@ export class CarTaxService {
     // ──────────────────────────────────────────────────────────────
     // STEP 4: DVLA enrichment (always — fills tax/MOT status gaps)
     // ──────────────────────────────────────────────────────────────
-    console.log(`[CarTax] Step 4: Fetching DVLA data (subscribed=${subscribed})`);
+    console.log(
+      `[CarTax] Step 4: Fetching DVLA data (subscribed=${subscribed})`,
+    );
     let dvlaData: any = null;
     try {
       // Use paid DVLA key for subscribed users, free key for others
@@ -144,13 +168,64 @@ export class CarTaxService {
           dvlaData = await freeDVLACarCheck(cleanVrm);
           console.log('[CarTax] DVLA free fallback succeeded');
         } catch (fallbackErr) {
-          console.error('[CarTax] DVLA free fallback also failed:', fallbackErr);
+          console.error(
+            '[CarTax] DVLA free fallback also failed:',
+            fallbackErr,
+          );
         }
       }
     }
 
     // Enrich parsed data with DVLA fields
     parsed = enrichWithDvla(parsed, dvlaData);
+
+    // ──────────────────────────────────────────────────────────────
+    // STEP 5: carapi.app — inject performance if still missing
+    // ──────────────────────────────────────────────────────────────
+    const hasPerf =
+      parsed?.performance?.powerKw ||
+      parsed?.performance?.powerBhp ||
+      parsed?.performance?.maxTorqueNm;
+
+    if (!hasPerf) {
+      const make = parsed?.vehicleDetails?.make ?? dvlaData?.make;
+      const model = parsed?.vehicleDetails?.model ?? '';
+      const year =
+        parsed?.vehicleDetails?.yearOfManufacture ??
+        dvlaData?.yearOfManufacture;
+
+      if (make && year) {
+        console.log(
+          `[CarTax] Step 5: carapi performance lookup — ${make} ${model} ${year}`,
+        );
+        try {
+          const carapiPerf = await fetchCarapiPerformance(make, model, year);
+          if (carapiPerf) {
+            // carapiPerf wins — existing parsed.performance may be empty {}
+            // spread carapiPerf first, then only keep non-empty existing values
+            const existing = parsed.performance ?? {};
+            const merged: any = { ...carapiPerf };
+            for (const key of Object.keys(existing)) {
+              const v = (existing as any)[key];
+              if (v !== undefined && v !== null && v !== '') {
+                merged[key] = v;
+              }
+            }
+            parsed.performance = merged;
+            console.log(
+              '[CarTax] carapi performance injected:',
+              JSON.stringify(parsed.performance),
+            );
+          }
+        } catch (err) {
+          console.log('[CarTax] carapi performance error:', err);
+        }
+      }
+    } else {
+      console.log(
+        '[CarTax] Step 5: performance already populated, skipping carapi',
+      );
+    }
 
     console.log('[CarTax] ═══ FINAL RESULT ═══');
     console.log('[CarTax] performance:', JSON.stringify(parsed.performance));
