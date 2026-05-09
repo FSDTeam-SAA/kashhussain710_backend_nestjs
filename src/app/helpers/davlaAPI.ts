@@ -429,7 +429,7 @@ export const freeDvlaApi = async (
     const response = await fetch(config.dvla.baseUrl, {
       method: 'POST',
       headers: {
-        'x-api-key': apiKey,
+        'x-api-key': normalizedApiKey,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({ registrationNumber: vrn }),
