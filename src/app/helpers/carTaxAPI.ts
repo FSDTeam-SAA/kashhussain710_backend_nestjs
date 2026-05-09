@@ -122,7 +122,7 @@ export function parseUkvdResponse(raw: any) {
 }
 
 /**
- * Deep merge: fill undefined/null fields in `primary` with values from `fallback`
+ * Deep merge: fill undefined/null fields in `primary` with values from `fallbacks`
  */
 export function mergeReports(primary: any, fallback: any): any {
   if (!fallback) return primary;
