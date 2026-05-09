@@ -41,41 +41,24 @@ export default {
     secretKey: process.env.STRIPE_SECRET_KEY,
     webhookSecret: process.env.STRIPE_WEBHOOK_SECRET,
   },
-  devla: {
+  dvla: {
     baseUrl:
       process.env.DVLA_BASE_URL ||
       'https://driver-vehicle-licensing.api.gov.uk/vehicle-enquiry/v1/vehicles',
-    freeDevialKey: process.env.DVLA_FREE_API_KEY || process.env.FREE_DEVIAL_KEY,
-    paidDevialKey: process.env.DVLA_PAID_API_KEY || process.env.PAID_DEVIAL_KEY,
-    defaultKeyType: process.env.DVLA_KEY_TYPE || 'free',
+    defaultKeyType: process.env.DVLA_DEFAULT_KEY_TYPE || 'free',
+    freeApiKey: process.env.FREE_DEVIAL_KEY || process.env.DVLA_FREE_API_KEY,
+    paidApiKey: process.env.PAID_DEVIAL_KEY || process.env.DVLA_PAID_API_KEY,
   },
-  carTax: {
-    provider: carTaxProvider,
-    apiKey: process.env.CARTAX_API_KEY,
-    ukvdApiKey: process.env.UKVD_API_KEY,
-    apiHost:
-      carTaxProvider === 'rapidapi'
-        ? 'uk-vehicle-data1.p.rapidapi.com'
-        : 'uk1.ukvehicledata.co.uk',
-    apiUrl:
-      carTaxProvider === 'rapidapi'
-        ? 'https://uk-vehicle-data1.p.rapidapi.com/cartax.api.v1.Public/GetInitialReport'
-        : 'https://uk1.ukvehicledata.co.uk/api/datapackage/VehicleData',
-    ukvdBaseUrl: 'https://uk1.ukvehicledata.co.uk/api/datapackage',
+  dvsa: {
+    clientId: process.env.DVSA_CLIENT_ID,
+    clientSecret: process.env.DVSA_CLIENT_SECRET,
+    apiKey: process.env.DVSA_API_KEY,
+    scope: process.env.DVSA_SCOPE || 'https://tapi.dvsa.gov.uk/.default',
+    tokenUrl: process.env.DVSA_TOKEN_URL,
+    motApiUrl:
+      process.env.DVSA_MOT_API_URL ||
+      'https://history.mot.api.gov.uk/v1/trade/vehicles/registration/',
   },
-  mot: {
-    clientId: process.env.MOT_CLIENT_ID,
-    clientSecret: process.env.MOT_CLIENT_SECRET,
-    apiKey: process.env.MOT_API_KEY,
-    scopeUrl: process.env.MOT_SCOPE_URL || 'https://tapi.dvsa.gov.uk/.default',
-    tokenUrl: process.env.MOT_TOKEN_URL,
-    apiBase:
-      process.env.MOT_API_BASE ||
-      'https://history.mot.api.gov.uk/v1/trade/vehicles',
-  },
-  checkCarDetails: {
-    testApiKey: process.env.CCD_TEST_API_KEY,
-    liveApiKey: process.env.CCD_LIVE_API_KEY,
-    frontendUrl: process.env.FRONTEND_URL,
-  },
+
+  frontendUrl: process.env.FRONTEND_URL,
 };

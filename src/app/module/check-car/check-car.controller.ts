@@ -1,7 +1,6 @@
 // import {
 //   Body,
 //   Controller,
-//   Delete,
 //   Get,
 //   HttpCode,
 //   HttpStatus,
@@ -10,103 +9,110 @@
 //   Req,
 //   UseGuards,
 // } from '@nestjs/common';
-// import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+// import {
+//   ApiBadRequestResponse,
+//   ApiBearerAuth,
+//   ApiBody,
+//   ApiCreatedResponse,
+//   ApiNotFoundResponse,
+//   ApiOkResponse,
+//   ApiOperation,
+//   ApiParam,
+//   ApiTags,
+// } from '@nestjs/swagger';
 // import { CheckCarService } from './check-car.service';
-// import { CheckCarRouteDto } from './dto/check-car-route.dto';
+// import { CreateCheckCarDto } from './dto/create-check-car.dto';
 // import AuthGuard from 'src/app/middlewares/auth.guard';
 // import type { Request } from 'express';
-// import pick from 'src/app/helpers/pick';
 
 // @ApiTags('check-car')
-// @ApiBearerAuth('access-token')
-// @UseGuards(AuthGuard('user'))
 // @Controller('check-car')
 // export class CheckCarController {
 //   constructor(private readonly checkCarService: CheckCarService) {}
 
-//   // POST /check-car/check  ← MAIN endpoint (auto free/paid based on subscription)
-//   @Post('check')
+//   @Post()
+//   @HttpCode(HttpStatus.CREATED)
 //   @ApiOperation({
-//     summary: 'Smart DVLA car check — auto-selects paid/free key based on subscription',
+//     summary: 'Create vehicle report data from DVLA registration lookup',
 //   })
-//   @HttpCode(HttpStatus.OK)
-//   async smartCheck(@Req() req: Request, @Body() body: CheckCarRouteDto) {
-//     const data = await this.checkCarService.smartCheck(
-//       req.user!.id,
-//       body.registrationNumber,
-//     );
-//     return { message: 'Car check successful', data };
-//   }
-
-//   // POST /check-car/free
-//   @Post('free')
-//   @ApiOperation({ summary: 'Free DVLA car check' })
-//   @HttpCode(HttpStatus.OK)
-//   async freeDVLACheck(@Req() req: Request, @Body() body: CheckCarRouteDto) {
-//     const data = await this.checkCarService.freeDVLACheck(
-//       req.user!.id,
-//       body.registrationNumber,
-//     );
-//     return { message: 'Free DVLA check successful', data };
-//   }
-
-//   // POST /check-car/paid
-//   @Post('paid')
-//   @ApiOperation({ summary: 'Paid DVLA car check' })
-//   @HttpCode(HttpStatus.OK)
-//   async paidDVLACheck(@Req() req: Request, @Body() body: CheckCarRouteDto) {
-//     const data = await this.checkCarService.paidDVLACheck(
-//       req.user!.id,
-//       body.registrationNumber,
-//     );
-//     return { message: 'Paid DVLA check successful', data };
-//   }
-
-//   // POST /check-car/mot-history  ← also subscription-aware now
-//   @Post('mot-history')
-//   @ApiOperation({ summary: 'Full MOT history (DVSA + DVLA) — subscription-aware' })
-//   @HttpCode(HttpStatus.OK)
-//   async motHistory(@Req() req: Request, @Body() body: CheckCarRouteDto) {
-//     const data = await this.checkCarService.smartMotHistoryCheck(
-//       req.user!.id,
-//       body.registrationNumber,
-//     );
-//     return { message: 'MOT history fetched successfully', data };
-//   }
-
-//   @Get('my-checkcar')
-//   @ApiOperation({ summary: 'My car checkr fetched successfully' })
+//   @ApiBody({ type: CreateCheckCarDto })
+//   @ApiCreatedResponse({ description: 'Vehicle report created successfully' })
+//   @ApiBadRequestResponse({ description: 'Invalid registration number' })
+//   @ApiNotFoundResponse({ description: 'Vehicle not found in DVLA' })
 //   @ApiBearerAuth('access-token')
 //   @UseGuards(AuthGuard('user'))
-//   @HttpCode(HttpStatus.OK)
-//   async checkMyCar(@Req() req: Request) {
-//     const options = pick(req.query, [
-//       'limit',
-//       'page',
-//       'skip',
-//       'sortBy',
-//       'sortOrder',
-//     ]);
-//     const result = await this.checkCarService.checkMyCar(req.user!.id, options);
-//     return { message: 'Your Car Checks', meta: result.meta, data: result.data };
+//   async createCheckCar(@Req() req: Request, @Body() dto: CreateCheckCarDto) {
+//     const result = await this.checkCarService.createCheckCar(req.user!.id, dto);
+//     return {
+//       statusCode: 201,
+//       success: true,
+//       message: 'Vehicle report created successfully',
+//       data: result,
+//     };
 //   }
 
-//   @Get('single/:id')
-//   @ApiOperation({ summary: 'Car checker fetched successfully' })
+//   @Get('history/:registration')
 //   @HttpCode(HttpStatus.OK)
-//   async checkMyCarById(@Param('id') id: string) {
-//     const data = await this.checkCarService.getSingleCheckCar(id);
-//     return { message: 'Your Car Check', data };
-//   }
-
-//   @Delete('single/:id')
-//   @ApiOperation({ summary: 'Car checker delete successfully' })
-//   @HttpCode(HttpStatus.OK)
-//   async deleteCarCheck(@Param('id') id: string) {
-//     const data = await this.checkCarService.deleteCarCheck(id);
-//     return { message: 'Car checker delete successfully', data };
+//   @ApiOperation({ summary: 'Get full MOT history for a vehicle' })
+//   @ApiParam({
+//     name: 'registration',
+//     example: 'AB12CDE',
+//     description: 'UK vehicle registration number (no spaces)',
+//   })
+//   @ApiOkResponse({
+//     description: 'Full MOT history returned successfully',
+//     schema: {
+//       example: {
+//         statusCode: 200,
+//         success: true,
+//         message: 'MOT history fetched successfully',
+//         data: {
+//           registration: 'AB12CDE',
+//           make: 'BMW',
+//           model: '3 SERIES',
+//           firstUsedDate: '2018-05-01',
+//           fuelType: 'Petrol',
+//           primaryColour: 'Black',
+//           hasOutstandingRecall: 'No',
+//           summary: { totalTests: 4, passed: 4, failed: 0 },
+//           mileage: {
+//             lastMotMileage: 40080,
+//             average: 5010,
+//             mileageIssues: 'No issues detected',
+//             status: 'LOW',
+//           },
+//           motTests: [
+//             {
+//               completedDate: '2024-05-10',
+//               testResult: 'PASSED',
+//               expiryDate: '2025-05-09',
+//               odometerValue: 40080,
+//               odometerUnit: 'mi',
+//               motTestNumber: '123456789',
+//               defects: [],
+//               advisories: [],
+//               minorDefects: [],
+//               majorDefects: [],
+//               dangerousDefects: [],
+//               prsFails: [],
+//             },
+//           ],
+//         },
+//       },
+//     },
+//   })
+//   @ApiNotFoundResponse({ description: 'Vehicle not found in DVLA' })
+//   async getMotHistory(@Param('registration') registration: string) {
+//     const result = await this.checkCarService.getMotHistory(registration);
+//     return {
+//       statusCode: 200,
+//       success: true,
+//       message: 'MOT history fetched successfully',
+//       data: result,
+//     };
 //   }
 // }
+
 import {
   Body,
   Controller,
@@ -114,143 +120,127 @@ import {
   Get,
   HttpCode,
   HttpStatus,
-  Param,
   Post,
   Req,
   UseGuards,
+  Param,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { CheckCarService } from './check-car.service';
-import { CheckCarRouteDto } from './dto/check-car-route.dto';
-import AuthGuard from 'src/app/middlewares/auth.guard';
-import type { Request } from 'express';
-import pick from 'src/app/helpers/pick';
+import {
+  ApiBearerAuth,
+  ApiBody,
+  ApiOperation,
+  ApiResponse,
+  ApiTags,
+} from '@nestjs/swagger';
 
-@ApiTags('check-car')
+import { FreeCheckDto } from './dto/free-check.dto';
+import { PaidCheckDto } from './dto/paid-check.dto';
+import { MotHistoryDto } from './dto/mot-history.dto';
+
+import type { Request } from 'express';
+import AuthGuard from 'src/app/middlewares/auth.guard';
+import { CheckCarService } from './check-car.service';
+
+@ApiTags('Vehicle Check')
+@Controller('vehicle-check')
 @ApiBearerAuth('access-token')
 @UseGuards(AuthGuard('user'))
-@Controller('check-car')
 export class CheckCarController {
-  constructor(private readonly checkCarService: CheckCarService) {}
+  constructor(private readonly vehicleCheckService: CheckCarService) {}
 
-  // POST /check-car/check  ← MAIN endpoint (auto free/paid based on subscription)
-  @Post('check')
-  @ApiOperation({
-    summary:
-      'Smart DVLA car check — auto-selects paid/free key based on subscription',
-  })
-  @HttpCode(HttpStatus.OK)
-  async smartCheck(@Req() req: Request, @Body() body: CheckCarRouteDto) {
-    const data = await this.checkCarService.smartCheck(
-      req.user!.id,
-      body.registrationNumber,
-    );
-    return { message: 'Car check successful', data };
-  }
-
-  // POST /check-car/free
   @Post('free')
-  @ApiOperation({ summary: 'Free DVLA car check' })
   @HttpCode(HttpStatus.OK)
-  async freeDVLACheck(@Req() req: Request, @Body() body: CheckCarRouteDto) {
-    const data = await this.checkCarService.freeDVLACheck(
-      req.user!.id,
-      body.registrationNumber,
-    );
-    return { message: 'Free DVLA check successful', data };
-  }
-
-  // POST /check-car/paid
-  @Post('paid')
-  @ApiOperation({ summary: 'Paid DVLA car check' })
-  @HttpCode(HttpStatus.OK)
-  async paidDVLACheck(@Req() req: Request, @Body() body: CheckCarRouteDto) {
-    const data = await this.checkCarService.paidDVLACheck(
-      req.user!.id,
-      body.registrationNumber,
-    );
-    return { message: 'Paid DVLA check successful', data };
-  }
-
-  // POST /check-car/mot-history  ← also subscription-aware now
-  @Post('mot-history')
-  @ApiOperation({
-    summary: 'Full MOT history (DVSA + DVLA) — subscription-aware',
+  @ApiOperation({ summary: 'Free vehicle check - basic information' })
+  @ApiBody({ type: FreeCheckDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Free check completed successfully',
   })
-  @HttpCode(HttpStatus.OK)
-  async motHistory(@Req() req: Request, @Body() body: CheckCarRouteDto) {
-    const data = await this.checkCarService.smartMotHistoryCheck(
-      req.user!.id,
-      body.registrationNumber,
-    );
-    return { message: 'MOT history fetched successfully', data };
-  }
-
-  // POST /check-car/full-report
-  // ─── Subscribed user  → paid key → full data (history, valuation, specs, MOT)
-  // ─── Non-subscribed   → test key → basic registration data only
-  @Post('full-report')
-  @ApiOperation({
-    summary:
-      'Full vehicle report via CheckCarDetails API — subscribed users get paid key (complete data), free users get test key (basic data)',
-  })
-  @HttpCode(HttpStatus.OK)
-  async ccdFullCheck(@Req() req: Request, @Body() body: CheckCarRouteDto) {
-    const result = await this.checkCarService.ccdFullCheck(
-      req.user!.id,
-      body.registrationNumber,
-    );
+  async freeCheck(@Req() req: Request, @Body() dto: FreeCheckDto) {
+    const result = await this.vehicleCheckService.freeCheck(req.user!.id, dto);
     return {
-      message: result.isSubscribed
-        ? 'Full vehicle report (paid — all data available)'
-        : 'Basic vehicle report (subscribe to unlock full data)',
-      keyType: result.keyType,
-      isSubscribed: result.isSubscribed,
-      data: result.data,
-      recordId: result.recordId,
+      statusCode: 200,
+      success: true,
+      message: 'Free vehicle check completed',
+      data: result,
     };
   }
 
-  // GET /check-car/debug-raw?vrm=EA65AMX  ← DEV ONLY, remove in production
-  @Get('debug-raw')
-  @ApiOperation({ summary: '[DEV] Raw CCD API response for debugging' })
+  @Post('paid')
   @HttpCode(HttpStatus.OK)
-  async debugRaw(@Req() req: Request) {
-    const vrm = String(req.query.vrm || 'EA65AMX');
-    const raw = await this.checkCarService.ccdRawDebug(vrm);
-    return { vrm, raw };
+  @ApiOperation({ summary: 'Paid vehicle check - full detailed report' })
+  @ApiBody({ type: PaidCheckDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Paid check completed successfully',
+  })
+  async paidCheck(
+    @Req() req: Request,
+    @Body() dto: PaidCheckDto,
+    @Body('paymentId') paymentId?: string,
+  ) {
+    const result = await this.vehicleCheckService.paidCheck(
+      req.user!.id,
+      dto,
+      paymentId,
+    );
+    return {
+      statusCode: 200,
+      success: true,
+      message: 'Paid vehicle check completed',
+      data: result,
+    };
   }
 
-  @Get('my-checkcar')
-  @ApiOperation({ summary: 'My car checkr fetched successfully' })
-  @ApiBearerAuth('access-token')
-  @UseGuards(AuthGuard('user'))
+  @Post('mot-history')
   @HttpCode(HttpStatus.OK)
-  async checkMyCar(@Req() req: Request) {
-    const options = pick(req.query, [
-      'limit',
-      'page',
-      'skip',
-      'sortBy',
-      'sortOrder',
-    ]);
-    const result = await this.checkCarService.checkMyCar(req.user!.id, options);
-    return { message: 'Your Car Checks', meta: result.meta, data: result.data };
+  @ApiOperation({ summary: 'Get full MOT history only' })
+  @ApiBody({ type: MotHistoryDto })
+  @ApiResponse({
+    status: 200,
+    description: 'MOT history retrieved successfully',
+  })
+  async getMotHistory(@Req() req: Request, @Body() dto: MotHistoryDto) {
+    const result = await this.vehicleCheckService.getMotHistoryOnly(
+      req.user!.id,
+      dto,
+    );
+    return {
+      statusCode: 200,
+      success: true,
+      message: 'MOT history retrieved successfully',
+      data: result,
+    };
   }
 
-  @Get('single/:id')
-  @ApiOperation({ summary: 'Car checker fetched successfully' })
+  @Get('reports')
   @HttpCode(HttpStatus.OK)
-  async checkMyCarById(@Param('id') id: string) {
-    const data = await this.checkCarService.getSingleCheckCar(id);
-    return { message: 'Your Car Check', data };
+  @ApiOperation({ summary: 'Get all user vehicle reports' })
+  @ApiResponse({ status: 200, description: 'Reports retrieved successfully' })
+  async getUserReports(@Req() req: Request) {
+    const result = await this.vehicleCheckService.getUserReports(req.user!.id);
+    return {
+      statusCode: 200,
+      success: true,
+      message: 'Reports retrieved successfully',
+      data: result,
+    };
   }
 
-  @Delete('single/:id')
-  @ApiOperation({ summary: 'Car checker delete successfully' })
+  @Get('report/:id')
   @HttpCode(HttpStatus.OK)
-  async deleteCarCheck(@Param('id') id: string) {
-    const data = await this.checkCarService.deleteCarCheck(id);
-    return { message: 'Car checker delete successfully', data };
+  @ApiOperation({ summary: 'Get single report by ID' })
+  @ApiResponse({ status: 200, description: 'Report retrieved successfully' })
+  async getReportById(@Req() req: Request, @Param('id') id: string) {
+    const result = await this.vehicleCheckService.getReportById(
+      id,
+      req.user!.id,
+    );
+    return {
+      statusCode: 200,
+      success: true,
+      message: 'Report retrieved successfully',
+      data: result,
+    };
   }
 }
