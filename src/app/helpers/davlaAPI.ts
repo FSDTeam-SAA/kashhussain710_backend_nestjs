@@ -359,8 +359,6 @@ import {
 } from '@nestjs/common';
 import config from '../config';
 
-// ─── Interfaces ───────────────────────────────────────────────
-
 export interface VehicleResponse {
   registrationNumber: string;
   taxStatus: string;
@@ -378,14 +376,6 @@ export interface VehicleResponse {
   dateOfLastV5CIssued: string;
   euroStatus?: string;
   wheelplan?: string;
-  revenueWeight?: number;
-  typeApproval?: string;
-}
-
-export interface DvsaMotDefect {
-  text: string;
-  type: string;
-  dangerous?: boolean;
 }
 
 export interface DvsaMotTest {

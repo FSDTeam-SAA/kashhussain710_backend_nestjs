@@ -3,6 +3,10 @@ import dotenv from 'dotenv';
 
 dotenv.config({ path: path.join(process.cwd(), '.env') });
 
+const carTaxProvider =
+  process.env.CARTAX_PROVIDER ||
+  (process.env.CARTAX_API_KEY?.includes('amsh') ? 'rapidapi' : 'ukvehicledata');
+
 export default {
   port: process.env.PORT || 3000,
   env: process.env.NODE_ENV || 'development',
@@ -33,6 +37,7 @@ export default {
     admin: process.env.ADMIN_EMAIL,
   },
   stripe: {
+    publicKey: process.env.STRIPE_PUBLISHABLE_KEY,
     secretKey: process.env.STRIPE_SECRET_KEY,
     webhookSecret: process.env.STRIPE_WEBHOOK_SECRET,
   },

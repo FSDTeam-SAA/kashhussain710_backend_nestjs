@@ -10,6 +10,7 @@ import { CheckCarService } from './check-car.service';
     MongooseModule.forFeature([
        { name: VehicleReport.name, schema: VehicleReportSchema },
       { name: User.name, schema: UserSchema },
+      { name: Subscribe.name, schema: SubscribeSchema },
     ]),
   ],
   controllers: [CheckCarController],

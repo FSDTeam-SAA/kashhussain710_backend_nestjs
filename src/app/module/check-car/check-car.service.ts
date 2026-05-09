@@ -685,14 +685,11 @@ export class CheckCarService {
     return `${Math.max(diffInDays, 0)} days left`;
   }
 
-  private getCo2Rating(value: number): string {
-    if (value <= 100) return 'A';
-    if (value <= 120) return 'B';
-    if (value <= 140) return 'C';
-    if (value <= 160) return 'D';
-    if (value <= 180) return 'E';
-    if (value <= 200) return 'F';
-    return 'G';
+  async deleteCarCheck(carCheckerId: string) {
+    const result = await this.checkCarModel.findByIdAndDelete(carCheckerId);
+    if (!result) throw new HttpException('Check car not found', 404);
+
+    return result;
   }
 
   private formatMotTests(motData: DvsaMotResponse | null) {
