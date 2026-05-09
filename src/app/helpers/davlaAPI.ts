@@ -1,3 +1,355 @@
+// import {
+//   BadGatewayException,
+//   BadRequestException,
+//   InternalServerErrorException,
+//   NotFoundException,
+//   ServiceUnavailableException,
+// } from '@nestjs/common';
+// import config from '../config';
+
+// // ─── Interfaces ───────────────────────────────────────────────
+
+// export interface VehicleResponse {
+//   registrationNumber: string;
+//   taxStatus: string;
+//   taxDueDate: string;
+//   motStatus: string;
+//   motExpiryDate?: string;
+//   make: string;
+//   colour: string;
+//   fuelType: string;
+//   yearOfManufacture: number;
+//   engineCapacity: number;
+//   co2Emissions: number;
+//   monthOfFirstRegistration: string;
+//   markedForExport: boolean;
+//   dateOfLastV5CIssued: string;
+//   euroStatus?: string;
+//   wheelplan?: string;
+//   revenueWeight?: number;
+//   typeApproval?: string;
+// }
+
+// export interface DvsaMotDefect {
+//   text: string;
+//   type: string;
+//   dangerous?: boolean;
+// }
+
+// export interface DvsaMotTest {
+//   completedDate: string;
+//   testResult: string;
+//   expiryDate?: string;
+//   odometerValue?: string | number;
+//   odometerUnit?: string;
+//   odometerResultType?: string;
+//   motTestNumber?: string;
+//   defects?: DvsaMotDefect[];
+// }
+
+// export interface DvsaMotResponse {
+//   registration: string;
+//   make?: string;
+//   model?: string;
+//   firstUsedDate?: string;
+//   fuelType?: string;
+//   primaryColour?: string;
+//   engineSize?: string;
+//   hasOutstandingRecall?: string;
+//   motTests?: DvsaMotTest[];
+// }
+
+// // ─── Token Cache ──────────────────────────────────────────────
+
+// let cachedToken: string | null = null;
+// let tokenExpiresAt = 0;
+
+// // ─── DVLA API ─────────────────────────────────────────────────
+
+// export const freeDvlaApi = async (
+//   carNumber: string,
+// ): Promise<VehicleResponse> => {
+//   const apiKey = config.dvla.freeApiKey!;
+//   const vrn = carNumber.replace(/\s/g, '').toUpperCase();
+
+//   if (!vrn || vrn.length < 2 || vrn.length > 8) {
+//     throw new BadRequestException('Invalid registration number format');
+//   }
+
+//   let response: Response;
+//   try {
+//     response = await fetch(config.dvla.baseUrl, {
+//       method: 'POST',
+//       headers: {
+//         'x-api-key': apiKey,
+//         'Content-Type': 'application/json',
+//       },
+//       body: JSON.stringify({ registrationNumber: vrn }),
+//     });
+//   } catch (err: any) {
+//     throw new ServiceUnavailableException(
+//       `Unable to connect to DVLA service: ${err?.message || 'Unknown error'}`,
+//     );
+//   }
+
+//   if (!response.ok) {
+//     let errorMessage = `DVLA request failed with status ${response.status}`;
+//     try {
+//       const err = await response.json();
+//       errorMessage = err?.errors?.[0]?.detail || err?.message || errorMessage;
+//     } catch {
+//       try {
+//         const errText = await response.text();
+//         if (errText) errorMessage = errText;
+//       } catch {
+//         /* keep default */
+//       }
+//     }
+
+//     switch (response.status) {
+//       case 400:
+//         throw new BadRequestException(errorMessage);
+//       case 404:
+//         throw new NotFoundException(
+//           `Vehicle not found for registration: ${vrn}`,
+//         );
+//       case 401:
+//       case 403:
+//         throw new BadGatewayException(
+//           'DVLA API authentication failed — check your API key',
+//         );
+//       case 429:
+//         throw new ServiceUnavailableException(
+//           'DVLA API rate limit exceeded — please try again later',
+//         );
+//       case 500:
+//       case 502:
+//       case 503:
+//         throw new ServiceUnavailableException(
+//           'DVLA service is currently unavailable',
+//         );
+//       default:
+//         throw new BadGatewayException(errorMessage);
+//     }
+//   }
+
+//   try {
+//     const data = (await response.json()) as VehicleResponse;
+//     if (!data.registrationNumber || !data.make) {
+//       throw new InternalServerErrorException(
+//         'DVLA returned incomplete vehicle data',
+//       );
+//     }
+//     return data;
+//   } catch (err: any) {
+//     if (
+//       err instanceof InternalServerErrorException ||
+//       err instanceof BadGatewayException
+//     ) {
+//       throw err;
+//     }
+//     throw new InternalServerErrorException('Failed to parse DVLA API response');
+//   }
+// };
+
+// // ─── DVSA OAuth2 Token ────────────────────────────────────────
+
+// const getDvsaAccessToken = async (): Promise<string | null> => {
+//   const { clientId, clientSecret, tokenUrl, scope } = config.dvsa;
+
+//   // credentials না থাকলে null return করো (graceful fallback)
+//   if (!clientId || !clientSecret || !tokenUrl) {
+//     return null;
+//   }
+
+//   // Cache valid থাকলে return করো
+//   if (cachedToken && Date.now() < tokenExpiresAt) {
+//     return cachedToken;
+//   }
+
+//   let response: Response;
+//   try {
+//     response = await fetch(tokenUrl, {
+//       method: 'POST',
+//       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+//       body: new URLSearchParams({
+//         grant_type: 'client_credentials',
+//         client_id: clientId,
+//         client_secret: clientSecret,
+//         scope: scope,
+//       }),
+//     });
+//   } catch (err: any) {
+//     throw new ServiceUnavailableException(
+//       `Unable to connect to DVSA auth service: ${err?.message || 'Unknown error'}`,
+//     );
+//   }
+
+//   if (!response.ok) {
+//     throw new BadGatewayException(
+//       `DVSA auth failed with status ${response.status}`,
+//     );
+//   }
+
+//   const payload = (await response.json()) as {
+//     access_token?: string;
+//     expires_in?: number;
+//   };
+
+//   if (!payload.access_token) {
+//     throw new BadGatewayException('DVSA auth did not return an access token');
+//   }
+
+//   // Cache — expires_in 60 sec আগে refresh
+//   cachedToken = payload.access_token;
+//   tokenExpiresAt = Date.now() + ((payload.expires_in ?? 3600) - 60) * 1000;
+
+//   return cachedToken;
+// };
+
+// // ─── DVSA MOT History API ─────────────────────────────────────
+
+// export const getDvsaMotHistory = async (
+//   registrationNumber: string,
+// ): Promise<DvsaMotResponse | null> => {
+//   const registration = registrationNumber.replace(/\s+/g, '').toUpperCase();
+
+//   if (!registration) {
+//     throw new BadRequestException('Registration number is required');
+//   }
+
+//   const { motApiKey, motApiUrl } = config.dvsa;
+
+//   if (!motApiKey || !motApiUrl) {
+//     // DVSA not configured — gracefully return null
+//     return null;
+//   }
+
+//   // Token নাও (থাকলে, না থাকলে null)
+//   const accessToken = await getDvsaAccessToken();
+
+//   // Headers তৈরি করো
+//   const headers: Record<string, string> = {
+//     Accept: 'application/json+v6',
+//     'X-API-Key': motApiKey,
+//   };
+
+//   // OAuth token থাকলে যোগ করো
+//   if (accessToken) {
+//     headers['Authorization'] = `Bearer ${accessToken}`;
+//   }
+
+//   let response: Response;
+//   try {
+//     response = await fetch(`${motApiUrl}${registration}`, {
+//       method: 'GET',
+//       headers,
+//     });
+//   } catch (err: any) {
+//     throw new ServiceUnavailableException(
+//       `Unable to connect to DVSA MOT service: ${err?.message || 'Unknown error'}`,
+//     );
+//   }
+
+//   // 404 = vehicle not found (valid case)
+//   if (response.status === 404) {
+//     return null;
+//   }
+
+//   if (!response.ok) {
+//     let errorBody = '';
+//     try {
+//       errorBody = await response.text();
+//     } catch {
+//       /* ignore */
+//     }
+
+//     console.error(`DVSA MOT ${response.status}:`, errorBody);
+
+//     switch (response.status) {
+//       case 401:
+//         throw new BadGatewayException(
+//           'DVSA authentication failed — check credentials',
+//         );
+//       case 403:
+//         // 403 = credentials আছে কিন্তু access নেই অথবা token নেই
+//         // Graceful fallback — null return করো
+//         return null;
+//       case 429:
+//         throw new ServiceUnavailableException('DVSA rate limit exceeded');
+//       default:
+//         throw new BadGatewayException(
+//           `DVSA MOT request failed with status ${response.status}`,
+//         );
+//     }
+//   }
+
+//   const data = (await response.json()) as DvsaMotResponse | DvsaMotResponse[];
+
+//   if (Array.isArray(data)) {
+//     return data[0] ?? null;
+//   }
+
+//   return data;
+// };
+
+// // ─── Helper Functions ─────────────────────────────────────────
+
+// export const extractMileageInfo = (motData: DvsaMotResponse | null) => {
+//   const sortedTests = [...(motData?.motTests || [])].sort(
+//     (a, b) =>
+//       new Date(a.completedDate).getTime() - new Date(b.completedDate).getTime(),
+//   );
+
+//   const odometerReadings = sortedTests
+//     .map((test) => Number(test.odometerValue))
+//     .filter((value) => Number.isFinite(value) && value > 0);
+
+//   const lastMotMileage =
+//     odometerReadings.length > 0
+//       ? odometerReadings[odometerReadings.length - 1]
+//       : 0;
+
+//   let mileageIssues = 'No issues detected';
+//   for (let i = 1; i < odometerReadings.length; i++) {
+//     if (odometerReadings[i] < odometerReadings[i - 1]) {
+//       mileageIssues = 'Potential mileage inconsistency detected';
+//       break;
+//     }
+//   }
+
+//   let average = 0;
+//   if (sortedTests.length > 1 && odometerReadings.length > 1) {
+//     const firstDate = new Date(sortedTests[0].completedDate).getTime();
+//     const lastDate = new Date(
+//       sortedTests[sortedTests.length - 1].completedDate,
+//     ).getTime();
+//     const years = Math.max(
+//       (lastDate - firstDate) / (1000 * 60 * 60 * 24 * 365),
+//       1,
+//     );
+//     average = Math.round((lastMotMileage - odometerReadings[0]) / years);
+//   }
+
+//   let status = 'UNKNOWN';
+//   if (average > 0 && average < 8000) status = 'LOW';
+//   else if (average >= 8000 && average < 15000) status = 'AVERAGE';
+//   else if (average >= 15000) status = 'HIGH';
+
+//   return { lastMotMileage, mileageIssues, average, status };
+// };
+
+// export const extractMotSummary = (motData: DvsaMotResponse | null) => {
+//   const motTests = motData?.motTests || [];
+//   const passed = motTests.filter(
+//     (t) => t.testResult?.toUpperCase() === 'PASSED',
+//   ).length;
+//   const failed = motTests.filter(
+//     (t) => t.testResult?.toUpperCase() === 'FAILED',
+//   ).length;
+//   return { totalTests: motTests.length, passed, failed };
+// };
+
 import {
   BadGatewayException,
   BadRequestException,
@@ -26,16 +378,55 @@ export interface VehicleResponse {
   wheelplan?: string;
 }
 
-// ─── shared fetch logic ──────────────────────────────────────────────
-async function callDvla(
-  registrationNumber: string,
-  apiKey: string,
-): Promise<VehicleResponse> {
-  const vrn = registrationNumber.replace(/\s/g, '').toUpperCase();
+export interface DvsaMotTest {
+  completedDate: string;
+  testResult: string;
+  expiryDate?: string;
+  odometerValue?: string | number;
+  odometerUnit?: string;
+  odometerResultType?: string;
+  motTestNumber?: string;
+  defects?: DvsaMotDefect[];
+}
 
-  let response: Response;
+export interface DvsaMotResponse {
+  registration: string;
+  make?: string;
+  model?: string;
+  firstUsedDate?: string;
+  fuelType?: string;
+  primaryColour?: string;
+  engineSize?: string;
+  hasOutstandingRecall?: string;
+  motTests?: DvsaMotTest[];
+}
+
+// ─── Token Cache ──────────────────────────────────────────────
+
+let cachedToken: string | null = null;
+let tokenExpiresAt = 0;
+
+// ============================================================
+// DVLA API - Free Vehicle Enquiry
+// ============================================================
+
+export const freeDvlaApi = async (
+  carNumber: string,
+): Promise<VehicleResponse> => {
+  const apiKey = config.dvla.freeApiKey;
+  const vrn = carNumber.replace(/\s/g, '').toUpperCase();
+
+  // Validation
+  if (!apiKey) {
+    throw new BadGatewayException('DVLA API key not configured');
+  }
+
+  if (!vrn || vrn.length < 2 || vrn.length > 8) {
+    throw new BadRequestException('Invalid registration number format');
+  }
+
   try {
-    response = await fetch(config.devla.baseUrl, {
+    const response = await fetch(config.dvla.baseUrl, {
       method: 'POST',
       headers: {
         'x-api-key': apiKey,
@@ -43,56 +434,326 @@ async function callDvla(
       },
       body: JSON.stringify({ registrationNumber: vrn }),
     });
-  } catch {
-    throw new ServiceUnavailableException('Unable to connect to DVLA service');
-  }
 
-  if (!response.ok) {
-    let errorMessage = `DVLA request failed: ${response.status}`;
-    try {
-      const text = await response.text();
-      if (text) {
-        try {
-          const err = JSON.parse(text);
-          errorMessage = err?.errors?.[0]?.detail ?? errorMessage;
-        } catch {
-          errorMessage = text;
-        }
-      }
-    } catch {
-      // ignore read error, use default message
+    // Handle error responses
+    if (!response.ok) {
+      await handleDvlaError(response, vrn);
     }
 
-    if (response.status === 400) throw new BadRequestException(errorMessage);
-    if (response.status === 404) throw new NotFoundException(errorMessage);
-    if (response.status === 401 || response.status === 403)
-      throw new BadGatewayException('DVLA API authentication failed');
+    const data = await response.json();
 
-    throw new BadGatewayException(errorMessage);
+    // Validate response data
+    if (!data.registrationNumber || !data.make) {
+      throw new InternalServerErrorException('Invalid response from DVLA API');
+    }
+
+    return data as VehicleResponse;
+  } catch (error: any) {
+    if (
+      error instanceof BadRequestException ||
+      error instanceof NotFoundException ||
+      error instanceof BadGatewayException ||
+      error instanceof ServiceUnavailableException
+    ) {
+      throw error;
+    }
+
+    throw new ServiceUnavailableException(
+      `DVLA service unavailable: ${error.message || 'Unknown error'}`,
+    );
+  }
+};
+
+const handleDvlaError = async (response: Response, vrn: string) => {
+  let errorMessage = `DVLA request failed with status ${response.status}`;
+
+  try {
+    const error = await response.json();
+    errorMessage = error?.errors?.[0]?.detail || error?.message || errorMessage;
+  } catch {
+    const errorText = await response.text();
+    if (errorText) errorMessage = errorText;
   }
 
-  return response.json() as Promise<VehicleResponse>;
-}
+  switch (response.status) {
+    case 400:
+      throw new BadRequestException(errorMessage);
+    case 404:
+      throw new NotFoundException(`Vehicle not found: ${vrn}`);
+    case 401:
+    case 403:
+      throw new BadGatewayException('DVLA API authentication failed');
+    case 429:
+      throw new ServiceUnavailableException('DVLA rate limit exceeded');
+    case 500:
+    case 502:
+    case 503:
+      throw new ServiceUnavailableException('DVLA service is unavailable');
+    default:
+      throw new BadGatewayException(errorMessage);
+  }
+};
 
-// ─── FREE DVLA ───────────────────────────────────────────────────────
-export async function freeDVLACarCheck(
+// ============================================================
+// DVSA OAuth2 Token Management
+// ============================================================
+
+const getDvsaAccessToken = async (): Promise<string | null> => {
+  const { clientId, clientSecret, tokenUrl, scope } = config.dvsa;
+
+  // Skip if credentials missing
+  if (!clientId || !clientSecret || !tokenUrl) {
+    return null;
+  }
+
+  // Return cached token if valid
+  if (cachedToken && Date.now() < tokenExpiresAt) {
+    return cachedToken;
+  }
+
+  try {
+    const response = await fetch(tokenUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        grant_type: 'client_credentials',
+        client_id: clientId,
+        client_secret: clientSecret,
+        scope: scope,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new BadGatewayException(`DVSA auth failed: ${response.status}`);
+    }
+
+    const data = await response.json();
+
+    if (!data.access_token) {
+      throw new BadGatewayException('No access token received from DVSA');
+    }
+
+    // Cache token (expire 60 seconds early)
+    cachedToken = data.access_token;
+    tokenExpiresAt = Date.now() + ((data.expires_in || 3600) - 60) * 1000;
+
+    return cachedToken;
+  } catch (error: any) {
+    if (error instanceof BadGatewayException) {
+      throw error;
+    }
+    throw new ServiceUnavailableException(
+      `DVSA auth service error: ${error.message || 'Unknown error'}`,
+    );
+  }
+};
+
+// ============================================================
+// DVSA MOT History API
+// ============================================================
+
+export const getDvsaMotHistory = async (
   registrationNumber: string,
-): Promise<VehicleResponse> {
-  const apiKey = config.devla.freeDevialKey;
-  if (!apiKey)
-    throw new InternalServerErrorException('FREE DVLA API key missing');
-  return callDvla(registrationNumber, apiKey);
-}
+): Promise<DvsaMotResponse | null> => {
+  const registration = registrationNumber.replace(/\s+/g, '').toUpperCase();
 
-// ─── PAID DVLA ───────────────────────────────────────────────────────
-export async function paidDVLACarCheck(
-  registrationNumber: string,
-): Promise<VehicleResponse> {
-  const apiKey = config.devla.paidDevialKey;
-  if (!apiKey)
-    throw new InternalServerErrorException('PAID DVLA API key missing');
-  return callDvla(registrationNumber, apiKey);
-}
+  if (!registration) {
+    throw new BadRequestException('Registration number is required');
+  }
 
-// ─── backward compat (পুরনো import ভাঙবে না) ────────────────────────
-export const freeDvlaApi = freeDVLACarCheck;
+  const { apiKey: motApiKey, motApiUrl } = config.dvsa;
+
+  // Skip if DVSA not configured
+  if (!motApiKey || !motApiUrl) {
+    return null;
+  }
+
+  try {
+    const accessToken = await getDvsaAccessToken();
+
+    const headers: Record<string, string> = {
+      Accept: 'application/json+v6',
+      'X-API-Key': motApiKey,
+    };
+
+    if (accessToken) {
+      headers['Authorization'] = `Bearer ${accessToken}`;
+    }
+
+    const response = await fetch(`${motApiUrl}${registration}`, {
+      method: 'GET',
+      headers,
+    });
+
+    // Vehicle not found - return null
+    if (response.status === 404) {
+      return null;
+    }
+
+    // Handle other errors
+    if (!response.ok) {
+      await handleDvsaError(response);
+      return null;
+    }
+
+    const data = await response.json();
+
+    // Handle array response
+    if (Array.isArray(data)) {
+      return data[0] || null;
+    }
+
+    return data as DvsaMotResponse;
+  } catch (error: any) {
+    // Log error but don't throw - allow fallback
+    console.error('DVSA MOT API error:', error.message);
+    return null;
+  }
+};
+
+const handleDvsaError = async (response: Response) => {
+  let errorBody = '';
+  try {
+    errorBody = await response.text();
+  } catch {
+    // Ignore parsing errors
+  }
+
+  console.error(`DVSA MOT ${response.status}:`, errorBody);
+
+  switch (response.status) {
+    case 401:
+      throw new BadGatewayException('DVSA authentication failed');
+    case 403:
+      // Forbidden but not critical - just return null
+      return;
+    case 429:
+      throw new ServiceUnavailableException('DVSA rate limit exceeded');
+    default:
+      throw new BadGatewayException(
+        `DVSA MOT request failed: ${response.status}`,
+      );
+  }
+};
+
+// ============================================================
+// Helper Functions
+// ============================================================
+
+export const extractMileageInfo = (motData: DvsaMotResponse | null) => {
+  const motTests = motData?.motTests || [];
+
+  if (motTests.length === 0) {
+    return {
+      lastMotMileage: 0,
+      mileageIssues: 'No MOT mileage data available',
+      average: 0,
+      status: 'UNKNOWN',
+    };
+  }
+
+  // Sort tests by date
+  const sortedTests = [...motTests].sort(
+    (a, b) =>
+      new Date(a.completedDate).getTime() - new Date(b.completedDate).getTime(),
+  );
+
+  // Get valid odometer readings
+  const readings = sortedTests
+    .map((test) => Number(test.odometerValue))
+    .filter((value) => value > 0 && !isNaN(value));
+
+  if (readings.length === 0) {
+    return {
+      lastMotMileage: 0,
+      mileageIssues: 'No valid mileage readings',
+      average: 0,
+      status: 'UNKNOWN',
+    };
+  }
+
+  const lastMileage = readings[readings.length - 1];
+
+  // Check for mileage inconsistencies
+  let issues = 'No issues detected';
+  for (let i = 1; i < readings.length; i++) {
+    if (readings[i] < readings[i - 1]) {
+      issues = 'Potential mileage inconsistency detected';
+      break;
+    }
+  }
+
+  // Calculate average annual mileage
+  let average = 0;
+  if (sortedTests.length > 1 && readings.length > 1) {
+    const firstDate = new Date(sortedTests[0].completedDate);
+    const lastDate = new Date(
+      sortedTests[sortedTests.length - 1].completedDate,
+    );
+    const years = Math.max(
+      (lastDate.getTime() - firstDate.getTime()) / (1000 * 60 * 60 * 24 * 365),
+      1,
+    );
+    average = Math.round((lastMileage - readings[0]) / years);
+  }
+
+  // Determine status
+  let status = 'UNKNOWN';
+  if (average > 0 && average < 8000) status = 'LOW';
+  else if (average >= 8000 && average < 15000) status = 'AVERAGE';
+  else if (average >= 15000) status = 'HIGH';
+
+  return {
+    lastMotMileage: lastMileage,
+    mileageIssues: issues,
+    average,
+    status,
+  };
+};
+
+export const extractMotSummary = (motData: DvsaMotResponse | null) => {
+  const motTests = motData?.motTests || [];
+
+  let passed = 0;
+  let failed = 0;
+
+  for (const test of motTests) {
+    const result = test.testResult?.toUpperCase();
+    if (result === 'PASSED') passed++;
+    else if (result === 'FAILED') failed++;
+  }
+
+  return {
+    totalTests: motTests.length,
+    passed,
+    failed,
+  };
+};
+
+// ============================================================
+// Combined Vehicle Check (DVLA + MOT)
+// ============================================================
+
+export const getFullVehicleReport = async (registrationNumber: string) => {
+  const cleanReg = registrationNumber.replace(/\s+/g, '').toUpperCase();
+
+  const [vehicle, motHistory] = await Promise.allSettled([
+    freeDvlaApi(cleanReg),
+    getDvsaMotHistory(cleanReg),
+  ]);
+
+  if (vehicle.status === 'rejected') {
+    throw vehicle.reason;
+  }
+
+  return {
+    vehicle: vehicle.value,
+    motHistory: motHistory.status === 'fulfilled' ? motHistory.value : null,
+    mileageInfo: extractMileageInfo(
+      motHistory.status === 'fulfilled' ? motHistory.value : null,
+    ),
+    motSummary: extractMotSummary(
+      motHistory.status === 'fulfilled' ? motHistory.value : null,
+    ),
+  };
+};
