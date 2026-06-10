@@ -19,11 +19,11 @@ export class SubscribeService {
   ) {}
 
   async createSubscribe(createSubscribeDto: CreateSubscribeDto) {
-    const { planName } = createSubscribeDto;
-    const exist = await this.subscribeModel.findOne({ planName });
-    if (exist) {
-      throw new HttpException('alrady create this plan', 404);
-    }
+    // const { planName } = createSubscribeDto;
+    // const exist = await this.subscribeModel.findOne({ planName });
+    // if (exist) {
+    //   throw new HttpException('alrady create this plan', 404);
+    // }
     const result = await this.subscribeModel.create(createSubscribeDto);
     return result;
   }
