@@ -38,14 +38,14 @@ export class PaymentService {
     if (!plan) throw new HttpException('Subscription plan not found', 404);
 
     // 3. Block if already completed
-    const existingCompleted = await this.paymentModel.findOne({
-      user: user._id,
-      subscribe: plan._id,
-      status: 'completed',
-    } as any);
-    if (existingCompleted) {
-      throw new HttpException('You already have this subscription', 400);
-    }
+    // const existingCompleted = await this.paymentModel.findOne({
+    //   user: user._id,
+    //   subscribe: plan._id,
+    //   status: 'completed',
+    // } as any);
+    // if (existingCompleted) {
+    //   throw new HttpException('You already have this subscription', 400);
+    // }
 
     // 4. Reuse pending PaymentIntent if still usable
     const existingPending = await this.paymentModel.findOne({
@@ -75,7 +75,7 @@ export class PaymentService {
 
     const paymentIntent = await this.stripe.paymentIntents.create({
       amount: amountInCents,
-      currency: 'usd',
+      currency: 'gbp',
       payment_method_types: ['card'],
       receipt_email: user.email,
       metadata: {
